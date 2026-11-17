@@ -1,0 +1,14 @@
+{
+  "name": "disciplina1",
+  "version": "1.0.0",
+  "scripts": {
+    "env:setup": "cp .env.example .env.local"
+  },
+  "type": "module",
+  "dependencies": {
+    "openai": "^7.45.1"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6"
+  }
+}
