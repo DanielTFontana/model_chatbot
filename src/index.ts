@@ -1,6 +1,23 @@
-import { openai } from "./clients/openai.ts";
+import { ContextWindow } from "./contextWindow.ts";
+import { MessageRepository } from "./messageRepository.ts";
+import type { Message } from "./types.ts";
 import { generateWitchCritique } from "./utils/generateWithCritique.ts";
-import { withRetry } from "./utils/withRetry.ts";
+import { summarizeHistory } from "./utils/summarizwHistory.ts";
+import * as crypto from "node:crypto";
+
+const windowId = process.argv[2] || crypto.randomUUID();
+const contextWindow = new ContextWindow();
+const messageRepository = new MessageRepository();
+
+const initialMessages = messageRepository.load(windowId);
+
+initialMessages.forEach((message) => {
+  if(initialMessages.length > 0) {
+    console.log('RESTAURANDO HISTÓRICO DA SESSAO:', windowId)
+  }
+
+  contextWindow.restore(message.role, message.content);
+});
 
 const personas = {
   juridico: "você é um especialista em direito brasileiro",
@@ -53,24 +70,35 @@ async function chatWithPersona(
   question: string,
 ) {
   const systemPrompt = personas[persona];
-  const response = await generateWitchCritique(systemPrompt, question);
-  console.log(`\n\n[${persona.toUpperCase()}] resposta: \n`, response)
-  
-  };
+  const userMessage = contextWindow.addUserMessage(question);
+  messageRepository.save(windowId, userMessage as Message);
+  const response = await generateWitchCritique(systemPrompt, contextWindow);
+  const assistantMessage = contextWindow.addAssistantMessage(response);
+  messageRepository.save(windowId, assistantMessage as Message);
 
-  // for await (const chunk of response) {
-  //   const content = chunk.choices[0]?.delta?.content ?? "";
-  //   if (content.length > 0) {
-  //     process.stdout.write(content);
-  //   }
-  // }
+  console.log(`\n\n[${persona.toUpperCase()}] resposta: \n`, response);
+}
 
+// await chatWithPersona(
+//   "juridico",
+//   contractAnalysisPrompt({
+//     contractText: contract,
+//     clientType: "pj",
+//     levelOFDetail: "low",
+//   }),
+// );
+console.log("sessão iniciado com id:", windowId);
 
 await chatWithPersona(
   "juridico",
-  contractAnalysisPrompt({
-    contractText: contract,
-    clientType: "pj",
-    levelOFDetail: "low",
-  }),
+  "só pode escolher um e sem justificar, zico ou maradona?",
 );
+await chatWithPersona("juridico", "sobre quais jogadores te perguntei?");
+await chatWithPersona("juridico", "qual dos jogadores tem mais gols?");
+
+console.log(
+  "histórico de mensagens:\n-------------------------------",
+  await summarizeHistory(contextWindow),
+);
+
+console.log("sessão finalizada com id", windowId);

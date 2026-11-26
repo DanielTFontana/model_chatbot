@@ -1,11 +1,12 @@
 import { openai } from "../clients/openai.ts"
+import { ContextWindow } from "../contextWindow.ts";
 import { withRetry } from "./withRetry.ts"
 
 // ideia importante para auto-validação por dentro do sistema e entregará já resposta mais acertiva
 
 export async function generateWitchCritique(
     system:string,
-    prompt:string,
+    contextWindow: ContextWindow,
 ): Promise<string>{
 // Step 1: Generate initial response
     const draft = await withRetry(async () => {
@@ -13,8 +14,8 @@ export async function generateWitchCritique(
             model: "gpt-6.1-sol",
             messages: [
                 {role: "system", content: system},
-                {role:"user", content: prompt}
-            ]
+                ...contextWindow.getMessages(),
+            ],
         });
         return response.choices[0].message?.content ?? "";
     })
